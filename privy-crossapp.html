@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHOGTANKS - Monad Games ID Login</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@privy-io/react-auth@latest/dist/index.umd.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        .logo {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .monad-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin: 10px;
+            min-width: 200px;
+        }
+        .monad-button:hover {
+            transform: translateY(-2px);
+        }
+        .monad-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .wallet-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { PrivyProvider, usePrivy, useCrossAppAccounts } = PrivyReactAuth;
+
+        // Configuration Privy pour CHOGTANKS
+        const privyConfig = {
+            appId: 'cmek64iqd02lql70b9fl64lm9',
+            config: {
+                loginMethods: ['discord', 'email'],
+                appearance: {
+                    theme: 'light',
+                    accentColor: '#667eea'
+                }
+            }
+        };
+
+        function MonadGamesIDLogin() {
+            const { ready, authenticated, user, login, logout } = usePrivy();
+            const { loginWithCrossAppAccount } = useCrossAppAccounts();
+            const [status, setStatus] = useState('');
+            const [walletAddress, setWalletAddress] = useState('');
+            const [username, setUsername] = useState('');
+
+            // Fonction pour envoyer résultats à Unity
+            const sendToUnity = (data) => {
+                try {
+                    // Méthode 1: postMessage vers parent window (si iframe)
+                    if (window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'CHOGTANKS_MONAD_RESULT',
+                            data: data
+                        }, '*');
+                    }
+                    
+                    // Méthode 2: Unity WebGL communication
+                    if (window.unityInstance) {
+                        window.unityInstance.SendMessage('PrivyManager', 'OnMonadGamesIDResult', JSON.stringify(data));
+                    }
+                    
+                    // Méthode 3: URL callback
+                    const callbackUrl = `chogtanks://monad-result?${new URLSearchParams(data).toString()}`;
+                    window.location.href = callbackUrl;
+                } catch (error) {
+                    console.error('Error sending to Unity:', error);
+                }
+            };
+
+            // Login avec Monad Games ID Cross App
+            const handleMonadLogin = async () => {
+                try {
+                    setStatus('Connecting to Monad Games ID...');
+                    
+                    // Utiliser Cross App login avec Monad Games ID
+                    await loginWithCrossAppAccount({
+                        appId: 'cmd8euall0037le0my79qpz42' // Monad Games ID Cross App ID
+                    });
+                    
+                } catch (error) {
+                    console.error('Monad Games ID login error:', error);
+                    setStatus(`Error: ${error.message}`);
+                }
+            };
+
+            // Récupérer wallet address depuis Cross App account
+            const getCrossAppWallet = async () => {
+                if (!user || !user.linkedAccounts) return;
+
+                try {
+                    // Chercher Cross App account Monad Games ID
+                    const crossAppAccount = user.linkedAccounts.find(
+                        account => account.type === 'cross_app' && 
+                        account.providerApp.id === 'cmd8euall0037le0my79qpz42'
+                    );
+
+                    if (crossAppAccount && crossAppAccount.embeddedWallets.length > 0) {
+                        const address = crossAppAccount.embeddedWallets[0].address;
+                        setWalletAddress(address);
+                        
+                        // Récupérer username via API Monad Games ID
+                        const response = await fetch(`https://monad-games-id-site.vercel.app/api/check-wallet?wallet=${address}`);
+                        const data = await response.json();
+                        
+                        if (data.hasUsername) {
+                            setUsername(data.user.username);
+                            setStatus('✅ Connected to Monad Games ID!');
+                            
+                            // Envoyer résultats à Unity
+                            sendToUnity({
+                                success: true,
+                                walletAddress: address,
+                                username: data.user.username,
+                                userId: data.user.id
+                            });
+                        } else {
+                            setStatus('⚠️ No username registered. Please visit Monad Games ID to register.');
+                            sendToUnity({
+                                success: false,
+                                error: 'No username registered',
+                                walletAddress: address,
+                                registrationUrl: 'https://monad-games-id-site.vercel.app/'
+                            });
+                        }
+                    } else {
+                        setStatus('❌ Cross App account not found');
+                        sendToUnity({
+                            success: false,
+                            error: 'Cross App account not found'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error getting Cross App wallet:', error);
+                    setStatus(`Error: ${error.message}`);
+                    sendToUnity({
+                        success: false,
+                        error: error.message
+                    });
+                }
+            };
+
+            // Effect pour traiter l'authentification
+            useEffect(() => {
+                if (authenticated && user) {
+                    getCrossAppWallet();
+                }
+            }, [authenticated, user]);
+
+            if (!ready) {
+                return (
+                    <div className="container">
+                        <div className="logo">🎮 CHOGTANKS</div>
+                        <div className="subtitle">Loading Monad Games ID...</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="container">
+                    <div className="logo">🎮 CHOGTANKS</div>
+                    <div className="subtitle">Connect with Monad Games ID</div>
+                    
+                    {!authenticated ? (
+                        <>
+                            <button 
+                                className="monad-button"
+                                onClick={handleMonadLogin}
+                            >
+                                🎯 Sign in with Monad Games ID
+                            </button>
+                            
+                            <button 
+                                className="monad-button"
+                                onClick={login}
+                                style={{background: '#6c757d'}}
+                            >
+                                📧 Other Login Methods
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <div className="status success">
+                                ✅ Connected as {user.discord?.username || user.email?.address}
+                            </div>
+                            
+                            {walletAddress && (
+                                <div className="wallet-info">
+                                    <strong>Monad Games ID:</strong><br/>
+                                    {username && <div>Username: {username}</div>}
+                                    <div>Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
+                                </div>
+                            )}
+                            
+                            <button 
+                                className="monad-button"
+                                onClick={logout}
+                                style={{background: '#dc3545'}}
+                            >
+                                🚪 Logout
+                            </button>
+                        </>
+                    )}
+                    
+                    {status && (
+                        <div className={`status ${status.includes('Error') || status.includes('❌') ? 'error' : status.includes('✅') ? 'success' : 'loading'}`}>
+                            {status}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function App() {
+            return (
+                <PrivyProvider {...privyConfig}>
+                    <MonadGamesIDLogin />
+                </PrivyProvider>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
