@@ -439,6 +439,19 @@
         // Afficher immédiatement dans l'UI
         document.addEventListener('DOMContentLoaded', function() {
             updateStatus('🚨 DIAGNOSTIC: Page loaded successfully', 'success');
+            handleCallback();
+            
+            // DIAGNOSTIC: Vérifier si le bouton existe et ajouter event listener
+            console.log('[DIAGNOSTIC] 🔍 Button element:', monadBtn);
+            if (monadBtn) {
+                console.log('[DIAGNOSTIC] ✅ Button found, adding click listener');
+                monadBtn.addEventListener('click', function() {
+                    console.log('[DIAGNOSTIC] 🖱️ Button clicked!');
+                    loginWithMonadGamesID();
+                });
+            } else {
+                console.error('[DIAGNOSTIC] ❌ Button not found!');
+            }
         });
         
         console.log('[CHOGTANKS] ✅ Simple Monad Games ID auth ready');
