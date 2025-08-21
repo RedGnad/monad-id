@@ -1,4 +1,3 @@
-Chogtanks index
 <!DOCTYPE html>
 <html lang="en-us">
   <head>
@@ -25,12 +24,15 @@ Chogtanks index
         appId: "1:362253578630:web:4f63c34258e0d32cbd3c07"
       };
       
+      // Initialiser Firebase
       const app = firebase.initializeApp(firebaseConfig);
       console.log("Firebase initialisé avec succès");
       
+      // Initialiser Auth et Firestore
       const auth = firebase.auth();
       const db = firebase.firestore();
       
+      // S'authentifier automatiquement de manière anonyme
       auth.signInAnonymously()
         .then(() => {
           console.log("Authentification anonyme réussie");
@@ -38,21 +40,6 @@ Chogtanks index
         .catch((error) => {
           console.error("Erreur d'authentification anonyme:", error);
         });
-    </script>
-    
-    <!-- Détection OAuth redirect pour Monad Games ID -->
-    <script>
-      // Vérifier si on arrive via OAuth (présence de code ou token dans URL)
-      const urlParams = new URLSearchParams(window.location.search);
-      const hasOAuthCode = urlParams.has('code');
-      const hasOAuthToken = urlParams.has('token');
-      const hasOAuthState = urlParams.has('state');
-      
-      if (hasOAuthCode || hasOAuthToken || hasOAuthState) {
-        console.log('[OAUTH] Redirection OAuth détectée, renvoi vers privy-crossapp.html');
-        // Rediriger vers la page d'authentification avec tous les paramètres
-        window.location.href = 'privy-crossapp.html' + window.location.search;
-      }
     </script>
   </head>
   <body>
