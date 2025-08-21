@@ -135,15 +135,12 @@
             updateStatus('Connecting to Monad Games ID...', 'loading');
             
             try {
-                // Utiliser endpoint Cross App Privy direct
-                const crossAppUrl = `https://auth.privy.io/cross-app/authorize?` +
-                    `client_id=${PRIVY_APP_ID}&` +
-                    `provider_app_id=${MONAD_GAMES_ID}&` +
-                    `redirect_uri=${encodeURIComponent(window.location.href)}&` +
-                    `response_type=code`;
+                // Rediriger directement vers Monad Games ID
+                const monadGamesIdUrl = `https://monad-games-id-site.vercel.app/auth?` +
+                    `redirect_uri=${encodeURIComponent(window.location.href)}`;
                 
-                console.log('[MONAD] Redirecting to Cross App:', crossAppUrl);
-                window.location.href = crossAppUrl;
+                console.log('[MONAD] Redirecting directly to Monad Games ID:', monadGamesIdUrl);
+                window.location.href = monadGamesIdUrl;
                 
             } catch (error) {
                 console.error('[MONAD] Error:', error);
@@ -154,10 +151,16 @@
         function handleAuthCallback() {
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
+            const token = urlParams.get('token');
+            const wallet = urlParams.get('wallet');
+            const username = urlParams.get('username');
             
             if (code) {
                 updateStatus('Processing authentication...', 'loading');
                 processAuthCode(code);
+            } else if (token && wallet) {
+                updateStatus('Processing Monad Games ID authentication...', 'loading');
+                processMonadAuth(token, wallet, username);
             }
         }
         
@@ -181,6 +184,36 @@
             } catch (error) {
                 console.error('[AUTH] Error processing code:', error);
                 updateStatus(`Auth error: ${error.message}`, 'error');
+                sendToUnity({
+                    success: false,
+                    error: error.message
+                });
+            }
+        }
+        
+        async function processMonadAuth(token, wallet, username) {
+            try {
+                updateStatus('✅ Monad Games ID connected!', 'success');
+                
+                // Afficher infos wallet
+                walletInfoEl.innerHTML = `
+                    <strong>Monad Games ID:</strong><br/>
+                    Username: ${username || 'Unknown'}<br/>
+                    Wallet: ${wallet.slice(0, 6)}...${wallet.slice(-4)}
+                `;
+                walletInfoEl.style.display = 'block';
+                
+                // Envoyer à Unity
+                sendToUnity({
+                    success: true,
+                    provider: 'monad_games_id',
+                    token: token,
+                    wallet: wallet,
+                    username: username
+                });
+                
+            } catch (error) {
+                updateStatus(`Monad auth error: ${error.message}`, 'error');
                 sendToUnity({
                     success: false,
                     error: error.message
