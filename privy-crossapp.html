@@ -112,20 +112,41 @@
         }
         
         function sendToUnity(data) {
-            console.log('[UNITY] Sending data:', data);
+            console.log('[UNITY] 📤 Sending data to Unity:', data);
             try {
+                // 1. PostMessage vers parent window
                 if (window.parent !== window) {
                     window.parent.postMessage({
                         type: 'CHOGTANKS_MONAD_RESULT',
                         data: data
                     }, '*');
+                    console.log('[UNITY] ✅ PostMessage sent to parent');
                 }
                 
+                // 2. Unity WebGL SendMessage - essayer plusieurs noms de GameObject
+                const gameObjectNames = ['ChogTanksPrivyManager', 'PrivyManager', 'MonadGamesIDManager'];
+                
                 if (window.unityInstance) {
-                    window.unityInstance.SendMessage('PrivyManager', 'OnMonadGamesIDResult', JSON.stringify(data));
+                    gameObjectNames.forEach(objName => {
+                        try {
+                            window.unityInstance.SendMessage(objName, 'OnMonadGamesIDResult', JSON.stringify(data));
+                            console.log(`[UNITY] ✅ SendMessage sent to ${objName}`);
+                        } catch (e) {
+                            console.log(`[UNITY] ⚠️ Failed to send to ${objName}:`, e.message);
+                        }
+                    });
+                } else {
+                    console.log('[UNITY] ⚠️ unityInstance not found');
                 }
+                
+                // 3. Global callback si défini
+                if (window.onMonadGamesIDResult) {
+                    window.onMonadGamesIDResult(data);
+                    console.log('[UNITY] ✅ Global callback called');
+                }
+                
             } catch (error) {
-                console.error('[UNITY] Error sending to Unity:', error);
+                console.error('[UNITY] ❌ Error sending to Unity:', error);
             }
         }
         
@@ -153,7 +174,26 @@
             const username = urlParams.get('username');
             const code = urlParams.get('code');
             
+            console.log('[CALLBACK] 🔍 Checking URL parameters:', {
+                currentUrl: window.location.href,
+                token: token,
+                wallet: wallet,
+                username: username,
+                code: code,
+                allParams: Object.fromEntries(urlParams)
+            });
+            
+            // Vérifier si on revient de Monad Games ID (même sans paramètres)
+            const referrer = document.referrer;
+            const isFromMonad = referrer.includes('monad-games-id-site.vercel.app');
+            
+            console.log('[CALLBACK] 📍 Referrer check:', {
+                referrer: referrer,
+                isFromMonad: isFromMonad
+            });
+            
             if (token && wallet) {
+                console.log('[CALLBACK] ✅ Token and wallet found in URL!');
                 updateStatus('✅ Connected to Monad Games ID!', 'success');
                 
                 walletInfoEl.innerHTML = `
@@ -171,6 +211,7 @@
                     username: username
                 });
             } else if (code) {
+                console.log('[CALLBACK] ✅ Auth code found in URL!');
                 updateStatus('✅ Authentication code received!', 'success');
                 
                 walletInfoEl.innerHTML = `
@@ -184,6 +225,30 @@
                     provider: 'monad_games_id',
                     code: code
                 });
+            } else if (isFromMonad) {
+                console.log('[CALLBACK] ⚠️ Returned from Monad Games ID but no callback parameters found');
+                updateStatus('⚠️ No callback data received from Monad Games ID', 'error');
+                
+                // Essayer de récupérer les données depuis localStorage si Monad Games ID les a stockées
+                const storedAuth = localStorage.getItem('monad_games_id_auth');
+                if (storedAuth) {
+                    try {
+                        const authData = JSON.parse(storedAuth);
+                        console.log('[CALLBACK] 📦 Found stored auth data:', authData);
+                        
+                        sendToUnity({
+                            success: true,
+                            provider: 'monad_games_id',
+                            ...authData
+                        });
+                        
+                        localStorage.removeItem('monad_games_id_auth');
+                    } catch (e) {
+                        console.error('[CALLBACK] ❌ Error parsing stored auth data:', e);
+                    }
+                }
+            } else {
+                console.log('[CALLBACK] ℹ️ No callback parameters found, normal page load');
             }
         }
         
