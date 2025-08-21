@@ -4,24 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHOGTANKS - Monad Games ID Login</title>
-    <!-- Bloquer injection wallet extensions -->
-    <script>
-        // Empêcher MetaMask/Backpack d'injecter window.ethereum
-        Object.defineProperty(window, 'ethereum', {
-            value: undefined,
-            writable: false,
-            configurable: false
-        });
-        
-        // Bloquer autres injections wallet communes
-        window.solana = undefined;
-        window.phantom = undefined;
-        window.backpack = undefined;
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18",
+            "react-dom": "https://esm.sh/react-dom@18",
+            "@privy-io/react-auth": "https://esm.sh/@privy-io/react-auth@1.88.4"
+        }
+    }
     </script>
-    
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/@privy-io/react-auth@1.88.4/dist/index.umd.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -103,23 +94,12 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
-        console.log('[CHOGTANKS] 🚀 Starting React app...');
-        console.log('[CHOGTANKS] React available:', typeof React);
-        console.log('[CHOGTANKS] ReactDOM available:', typeof ReactDOM);
-        console.log('[CHOGTANKS] PrivyReactAuth available:', typeof PrivyReactAuth);
+    <script type="module">
+        import React, { useState, useEffect } from 'react';
+        import ReactDOM from 'react-dom';
+        import { PrivyProvider, usePrivy, useCrossAppAccounts } from '@privy-io/react-auth';
         
-        const { useState, useEffect } = React;
-        
-        // Vérifier que Privy est chargé
-        if (typeof window.PrivyReactAuth === 'undefined') {
-            console.error('[CHOGTANKS] ❌ PrivyReactAuth not loaded!');
-            document.getElementById('root').innerHTML = '<div style="color:red;text-align:center;padding:50px;">❌ Privy SDK failed to load</div>';
-        } else {
-            console.log('[CHOGTANKS] ✅ PrivyReactAuth loaded successfully');
-        }
-        
-        const { PrivyProvider, usePrivy, useCrossAppAccounts } = window.PrivyReactAuth || {};
+        console.log('[CHOGTANKS] 🚀 Starting React app with ES modules...');
 
         // Configuration Privy pour CHOGTANKS
         const privyConfig = {
@@ -136,9 +116,9 @@
         function MonadGamesIDLogin() {
             const { ready, authenticated, user, login, logout } = usePrivy();
             const { loginWithCrossAppAccount } = useCrossAppAccounts();
-            const [status, setStatus] = useState('');
-            const [walletAddress, setWalletAddress] = useState('');
-            const [username, setUsername] = useState('');
+            const [status, setStatus] = React.useState('');
+            const [walletAddress, setWalletAddress] = React.useState('');
+            const [username, setUsername] = React.useState('');
 
             // Fonction pour envoyer résultats à Unity
             const sendToUnity = (data) => {
@@ -237,100 +217,80 @@
             };
 
             // Effect pour traiter l'authentification
-            useEffect(() => {
+            React.useEffect(() => {
                 if (authenticated && user) {
                     getCrossAppWallet();
                 }
             }, [authenticated, user]);
 
             if (!ready) {
-                return (
-                    <div className="container">
-                        <div className="logo">🎮 CHOGTANKS</div>
-                        <div className="subtitle">Loading Monad Games ID...</div>
-                    </div>
-                );
+                return React.createElement('div', {className: 'container'}, [
+                    React.createElement('div', {className: 'logo', key: 'logo'}, '🎮 CHOGTANKS'),
+                    React.createElement('div', {className: 'subtitle', key: 'subtitle'}, 'Loading Monad Games ID...')
+                ]);
             }
 
-            return (
-                <div className="container">
-                    <div className="logo">🎮 CHOGTANKS</div>
-                    <div className="subtitle">Connect with Monad Games ID</div>
+            return React.createElement('div', {className: 'container'}, [
+                React.createElement('div', {className: 'logo', key: 'logo'}, '🎮 CHOGTANKS'),
+                React.createElement('div', {className: 'subtitle', key: 'subtitle'}, 'Connect with Monad Games ID'),
+                
+                !authenticated ? [
+                    React.createElement('button', {
+                        key: 'monad-btn',
+                        className: 'monad-button',
+                        onClick: handleMonadLogin
+                    }, '🎯 Sign in with Monad Games ID'),
                     
-                    {!authenticated ? (
-                        <>
-                            <button 
-                                className="monad-button"
-                                onClick={handleMonadLogin}
-                            >
-                                🎯 Sign in with Monad Games ID
-                            </button>
-                            
-                            <button 
-                                className="monad-button"
-                                onClick={login}
-                                style={{background: '#6c757d'}}
-                            >
-                                📧 Other Login Methods
-                            </button>
-                        </>
-                    ) : (
-                        <>
-                            <div className="status success">
-                                ✅ Connected as {user.discord?.username || user.email?.address}
-                            </div>
-                            
-                            {walletAddress && (
-                                <div className="wallet-info">
-                                    <strong>Monad Games ID:</strong><br/>
-                                    {username && <div>Username: {username}</div>}
-                                    <div>Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
-                                </div>
-                            )}
-                            
-                            <button 
-                                className="monad-button"
-                                onClick={logout}
-                                style={{background: '#dc3545'}}
-                            >
-                                🚪 Logout
-                            </button>
-                        </>
-                    )}
+                    React.createElement('button', {
+                        key: 'other-btn',
+                        className: 'monad-button',
+                        onClick: login,
+                        style: {background: '#6c757d'}
+                    }, '📧 Other Login Methods')
+                ] : [
+                    React.createElement('div', {
+                        key: 'success',
+                        className: 'status success'
+                    }, `✅ Connected as ${user.discord?.username || user.email?.address}`),
                     
-                    {status && (
-                        <div className={`status ${status.includes('Error') || status.includes('❌') ? 'error' : status.includes('✅') ? 'success' : 'loading'}`}>
-                            {status}
-                        </div>
-                    )}
-                </div>
-            );
+                    walletAddress && React.createElement('div', {
+                        key: 'wallet-info',
+                        className: 'wallet-info'
+                    }, [
+                        React.createElement('strong', {key: 'label'}, 'Monad Games ID:'),
+                        React.createElement('br', {key: 'br1'}),
+                        username && React.createElement('div', {key: 'username'}, `Username: ${username}`),
+                        React.createElement('div', {key: 'wallet'}, `Wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`)
+                    ]),
+                    
+                    React.createElement('button', {
+                        key: 'logout-btn',
+                        className: 'monad-button',
+                        onClick: logout,
+                        style: {background: '#dc3545'}
+                    }, '🚪 Logout')
+                ],
+                
+                status && React.createElement('div', {
+                    key: 'status',
+                    className: `status ${status.includes('Error') || status.includes('❌') ? 'error' : status.includes('✅') ? 'success' : 'loading'}`
+                }, status)
+            ].flat().filter(Boolean));
         }
 
         function App() {
             console.log('[CHOGTANKS] 📦 Rendering App component...');
-            
-            if (!PrivyProvider || !usePrivy || !useCrossAppAccounts) {
-                return React.createElement('div', {
-                    style: {color: 'red', textAlign: 'center', padding: '50px'}
-                }, '❌ Privy components not available');
-            }
             
             return React.createElement(PrivyProvider, privyConfig, 
                 React.createElement(MonadGamesIDLogin)
             );
         }
 
-        if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
-            console.log('[CHOGTANKS] 🎯 Rendering React app to DOM...');
-            ReactDOM.render(React.createElement(App), document.getElementById('root'));
-            console.log('[CHOGTANKS] ✅ React app rendered successfully!');
-        } else {
-            console.error('[CHOGTANKS] ❌ React or ReactDOM not available');
-            document.getElementById('root').innerHTML = '<div style="color:red;text-align:center;padding:50px;">❌ React failed to load</div>';
-        }
+        // Render app
+        console.log('[CHOGTANKS] 🎯 Rendering React app to DOM...');
+        ReactDOM.render(React.createElement(App), document.getElementById('root'));
+        console.log('[CHOGTANKS] ✅ React app rendered successfully!');
     </script>
     
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </body>
 </html>
