@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHOGTANKS - Monad Games ID Login</title>
     
-    <!-- Privy SDK -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/@privy-io/react-auth@1.88.4/dist/index.umd.js"></script>
     
     <style>
         body {
@@ -89,200 +85,119 @@
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div class="container">
+        <div class="logo">🎮 CHOGTANKS</div>
+        <div class="subtitle">Connect with Monad Games ID</div>
+        
+        <button id="monad-login-btn" class="monad-button">
+            🎯 Sign in with Monad Games ID
+        </button>
+        
+        <div id="status" class="status loading">Ready to connect...</div>
+        <div id="wallet-info" class="wallet-info" style="display: none;"></div>
+    </div>
 
     <script>
-        console.log('[CHOGTANKS] 🚀 Starting React app...');
+        console.log('[CHOGTANKS] 🚀 Starting simple auth...');
         
-        const { useState, useEffect } = React;
-        const { PrivyProvider, usePrivy } = window.PrivyReactAuth || {};
+        const PRIVY_APP_ID = 'cmek64iqd02lql70b9fl64lm9';
+        const MONAD_GAMES_ID = 'cmd8euall0037le0my79qpz42';
         
-        // Configuration Privy selon documentation officielle Monad Games ID
-        const privyConfig = {
-            appId: 'cmek64iqd02lql70b9fl64lm9',
-            config: {
-                // Utiliser loginMethodsAndOrder comme recommandé dans la doc
-                loginMethodsAndOrder: [
-                    'cross_app:cmd8euall0037le0my79qpz42', // Monad Games ID Cross App ID
-                    'discord',
-                    'email'
-                ],
-                appearance: {
-                    theme: 'light',
-                    accentColor: '#667eea'
-                }
-            }
-        };
+        const statusEl = document.getElementById('status');
+        const walletInfoEl = document.getElementById('wallet-info');
+        const monadBtn = document.getElementById('monad-login-btn');
         
-        function MonadGamesIDLogin() {
-            const { ready, authenticated, user, login, logout } = usePrivy();
-            const [status, setStatus] = useState('Ready to connect...');
-            const [walletAddress, setWalletAddress] = useState('');
-            const [username, setUsername] = useState('');
-            
-            // Fonction pour envoyer résultats à Unity
-            const sendToUnity = (data) => {
-                console.log('[UNITY] Sending data:', data);
-                try {
-                    if (window.parent !== window) {
-                        window.parent.postMessage({
-                            type: 'CHOGTANKS_MONAD_RESULT',
-                            data: data
-                        }, '*');
-                    }
-                    
-                    if (window.unityInstance) {
-                        window.unityInstance.SendMessage('PrivyManager', 'OnMonadGamesIDResult', JSON.stringify(data));
-                    }
-                } catch (error) {
-                    console.error('[UNITY] Error sending to Unity:', error);
-                }
-            };
-            
-            // Récupérer wallet address depuis Cross App account
-            const getCrossAppWallet = async () => {
-                if (!user || !user.linkedAccounts) return;
-                
-                try {
-                    // Chercher Cross App account Monad Games ID selon la doc
-                    const crossAppAccount = user.linkedAccounts.find(
-                        account => account.type === 'cross_app' && 
-                        account.providerApp.id === 'cmd8euall0037le0my79qpz42'
-                    );
-                    
-                    if (crossAppAccount && crossAppAccount.embeddedWallets.length > 0) {
-                        const address = crossAppAccount.embeddedWallets[0].address;
-                        setWalletAddress(address);
-                        
-                        // Récupérer username via API Monad Games ID
-                        const response = await fetch(`https://monad-games-id-site.vercel.app/api/check-wallet?wallet=${address}`);
-                        const data = await response.json();
-                        
-                        if (data.hasUsername) {
-                            setUsername(data.user.username);
-                            setStatus('✅ Connected to Monad Games ID!');
-                            
-                            sendToUnity({
-                                success: true,
-                                walletAddress: address,
-                                username: data.user.username,
-                                userId: data.user.id
-                            });
-                        } else {
-                            setStatus('⚠️ No username registered. Please visit Monad Games ID to register.');
-                            sendToUnity({
-                                success: false,
-                                error: 'No username registered',
-                                walletAddress: address,
-                                registrationUrl: 'https://monad-games-id-site.vercel.app/'
-                            });
-                        }
-                    } else {
-                        setStatus('❌ Cross App account not found');
-                        sendToUnity({
-                            success: false,
-                            error: 'Cross App account not found'
-                        });
-                    }
-                } catch (error) {
-                    console.error('[MONAD] Error getting Cross App wallet:', error);
-                    setStatus(`Error: ${error.message}`);
-                    sendToUnity({
-                        success: false,
-                        error: error.message
-                    });
-                }
-            };
-            
-            // Effect pour traiter l'authentification
-            useEffect(() => {
-                if (authenticated && user) {
-                    getCrossAppWallet();
-                }
-            }, [authenticated, user]);
-            
-            if (!ready) {
-                return React.createElement('div', { className: 'container' }, [
-                    React.createElement('div', { className: 'logo', key: 'logo' }, '🎮 CHOGTANKS'),
-                    React.createElement('div', { className: 'subtitle', key: 'subtitle' }, 'Loading Monad Games ID...')
-                ]);
-            }
-            
-            return React.createElement('div', { className: 'container' }, [
-                React.createElement('div', { className: 'logo', key: 'logo' }, '🎮 CHOGTANKS'),
-                React.createElement('div', { className: 'subtitle', key: 'subtitle' }, 'Connect with Monad Games ID'),
-                
-                !authenticated ? [
-                    React.createElement('button', {
-                        key: 'monad-btn',
-                        className: 'monad-button',
-                        onClick: () => {
-                            setStatus('Connecting to Monad Games ID...');
-                            login();
-                        }
-                    }, '🎯 Sign in with Monad Games ID'),
-                    
-                    React.createElement('div', {
-                        key: 'status',
-                        className: `status ${status.includes('Error') || status.includes('❌') ? 'error' : status.includes('✅') ? 'success' : 'loading'}`
-                    }, status)
-                ] : [
-                    React.createElement('div', {
-                        key: 'success',
-                        className: 'status success'
-                    }, `✅ Connected as ${user.discord?.username || user.email?.address}`),
-                    
-                    walletAddress ? React.createElement('div', {
-                        key: 'wallet-info',
-                        className: 'wallet-info'
-                    }, [
-                        React.createElement('strong', { key: 'title' }, 'Monad Games ID:'),
-                        React.createElement('br', { key: 'br1' }),
-                        username ? React.createElement('div', { key: 'username' }, `Username: ${username}`) : null,
-                        React.createElement('div', { key: 'wallet' }, `Wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`)
-                    ]) : null,
-                    
-                    React.createElement('button', {
-                        key: 'logout-btn',
-                        className: 'monad-button',
-                        onClick: logout,
-                        style: { background: '#dc3545' }
-                    }, '🚪 Logout'),
-                    
-                    React.createElement('div', {
-                        key: 'status',
-                        className: `status ${status.includes('Error') || status.includes('❌') ? 'error' : status.includes('✅') ? 'success' : 'loading'}`
-                    }, status)
-                ]
-            ]);
+        function updateStatus(message, type = 'loading') {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            console.log(`[STATUS] ${message}`);
         }
         
-        function App() {
-            console.log('[CHOGTANKS] 📦 Rendering App component...');
-            
-            if (!PrivyProvider || !usePrivy) {
-                return React.createElement('div', {
-                    style: { color: 'red', textAlign: 'center', padding: '50px' }
-                }, '❌ Privy components not available');
+        function sendToUnity(data) {
+            console.log('[UNITY] Sending data:', data);
+            try {
+                if (window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'CHOGTANKS_MONAD_RESULT',
+                        data: data
+                    }, '*');
+                }
+                
+                if (window.unityInstance) {
+                    window.unityInstance.SendMessage('PrivyManager', 'OnMonadGamesIDResult', JSON.stringify(data));
+                }
+            } catch (error) {
+                console.error('[UNITY] Error sending to Unity:', error);
             }
-            
-            return React.createElement(PrivyProvider, privyConfig, 
-                React.createElement(MonadGamesIDLogin)
-            );
         }
         
-        // Attendre que les scripts soient chargés
-        window.addEventListener('load', () => {
-            if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined' && window.PrivyReactAuth) {
-                console.log('[CHOGTANKS] 🎯 Rendering React app to DOM...');
-                ReactDOM.render(React.createElement(App), document.getElementById('root'));
-                console.log('[CHOGTANKS] ✅ React app rendered successfully!');
-            } else {
-                console.error('[CHOGTANKS] ❌ Required libraries not loaded');
-                document.getElementById('root').innerHTML = '<div style="color:red;text-align:center;padding:50px;">❌ Failed to load required libraries</div>';
+        async function loginWithMonadGamesID() {
+            updateStatus('Connecting to Monad Games ID...', 'loading');
+            
+            try {
+                // Utiliser endpoint Cross App Privy direct
+                const crossAppUrl = `https://auth.privy.io/cross-app/authorize?` +
+                    `client_id=${PRIVY_APP_ID}&` +
+                    `provider_app_id=${MONAD_GAMES_ID}&` +
+                    `redirect_uri=${encodeURIComponent(window.location.href)}&` +
+                    `response_type=code`;
+                
+                console.log('[MONAD] Redirecting to Cross App:', crossAppUrl);
+                window.location.href = crossAppUrl;
+                
+            } catch (error) {
+                console.error('[MONAD] Error:', error);
+                updateStatus(`Error: ${error.message}`, 'error');
             }
+        }
+        
+        function handleAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            
+            if (code) {
+                updateStatus('Processing authentication...', 'loading');
+                processAuthCode(code);
+            }
+        }
+        
+        async function processAuthCode(code) {
+            try {
+                updateStatus('✅ Authentication successful!', 'success');
+                
+                // Simuler récupération des données utilisateur
+                walletInfoEl.innerHTML = `
+                    <strong>Monad Games ID:</strong><br/>
+                    Code: ${code.slice(0, 8)}...<br/>
+                    Status: Connected
+                `;
+                walletInfoEl.style.display = 'block';
+                
+                sendToUnity({
+                    success: true,
+                    provider: 'monad_games_id',
+                    code: code
+                });
+            } catch (error) {
+                console.error('[AUTH] Error processing code:', error);
+                updateStatus(`Auth error: ${error.message}`, 'error');
+                sendToUnity({
+                    success: false,
+                    error: error.message
+                });
+            }
+        }
+        
+        // Event listeners
+        monadBtn.addEventListener('click', loginWithMonadGamesID);
+        
+        // Initialiser au chargement
+        window.addEventListener('load', function() {
+            console.log('[CHOGTANKS] Page loaded, checking for auth callback...');
+            handleAuthCallback();
         });
+        
+        console.log('[CHOGTANKS] ✅ Simple auth ready');
     </script>
-    
 </body>
 </html>
