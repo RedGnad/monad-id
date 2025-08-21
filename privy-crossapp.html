@@ -4,9 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHOGTANKS - Monad Games ID Login</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@privy-io/react-auth@latest/dist/index.umd.js"></script>
+    <!-- Bloquer injection wallet extensions -->
+    <script>
+        // Empêcher MetaMask/Backpack d'injecter window.ethereum
+        Object.defineProperty(window, 'ethereum', {
+            value: undefined,
+            writable: false,
+            configurable: false
+        });
+        
+        // Bloquer autres injections wallet communes
+        window.solana = undefined;
+        window.phantom = undefined;
+        window.backpack = undefined;
+    </script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@privy-io/react-auth@1.88.4/dist/index.umd.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -89,8 +104,22 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        console.log('[CHOGTANKS] 🚀 Starting React app...');
+        console.log('[CHOGTANKS] React available:', typeof React);
+        console.log('[CHOGTANKS] ReactDOM available:', typeof ReactDOM);
+        console.log('[CHOGTANKS] PrivyReactAuth available:', typeof PrivyReactAuth);
+        
         const { useState, useEffect } = React;
-        const { PrivyProvider, usePrivy, useCrossAppAccounts } = PrivyReactAuth;
+        
+        // Vérifier que Privy est chargé
+        if (typeof window.PrivyReactAuth === 'undefined') {
+            console.error('[CHOGTANKS] ❌ PrivyReactAuth not loaded!');
+            document.getElementById('root').innerHTML = '<div style="color:red;text-align:center;padding:50px;">❌ Privy SDK failed to load</div>';
+        } else {
+            console.log('[CHOGTANKS] ✅ PrivyReactAuth loaded successfully');
+        }
+        
+        const { PrivyProvider, usePrivy, useCrossAppAccounts } = window.PrivyReactAuth || {};
 
         // Configuration Privy pour CHOGTANKS
         const privyConfig = {
@@ -279,14 +308,27 @@
         }
 
         function App() {
-            return (
-                <PrivyProvider {...privyConfig}>
-                    <MonadGamesIDLogin />
-                </PrivyProvider>
+            console.log('[CHOGTANKS] 📦 Rendering App component...');
+            
+            if (!PrivyProvider || !usePrivy || !useCrossAppAccounts) {
+                return React.createElement('div', {
+                    style: {color: 'red', textAlign: 'center', padding: '50px'}
+                }, '❌ Privy components not available');
+            }
+            
+            return React.createElement(PrivyProvider, privyConfig, 
+                React.createElement(MonadGamesIDLogin)
             );
         }
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+            console.log('[CHOGTANKS] 🎯 Rendering React app to DOM...');
+            ReactDOM.render(React.createElement(App), document.getElementById('root'));
+            console.log('[CHOGTANKS] ✅ React app rendered successfully!');
+        } else {
+            console.error('[CHOGTANKS] ❌ React or ReactDOM not available');
+            document.getElementById('root').innerHTML = '<div style="color:red;text-align:center;padding:50px;">❌ React failed to load</div>';
+        }
     </script>
     
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
