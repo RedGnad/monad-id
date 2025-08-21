@@ -151,20 +151,20 @@
         }
         
         async function loginWithMonadGamesID() {
-            updateStatus('Redirecting to Monad Games ID...', 'loading');
+            console.log('[CHOGTANKS] 🎮 Redirecting to Monad Games ID...');
+            updateStatus('Redirection vers Monad Games ID...', 'loading');
             
-            try {
-                // Rediriger directement vers le site Monad Games ID
-                const monadUrl = `https://monad-games-id-site.vercel.app/?` +
-                    `redirect_uri=${encodeURIComponent(window.location.href)}`;
-                
-                console.log('[MONAD] Redirecting to:', monadUrl);
-                window.location.href = monadUrl;
-                
-            } catch (error) {
-                console.error('[MONAD] Error:', error);
-                updateStatus(`Error: ${error.message}`, 'error');
-            }
+            // URL de redirection Cross App Monad Games ID - REDIRECT VERS WEBVIEW
+            const crossAppUrl = 'https://auth.privy.io/cross-app/authorize?' + 
+                'client_id=cmek64iqd02lql70b9fl64lm9' +
+                '&provider_app_id=cmd8euall0037le0my79qpz42' +
+                '&redirect_uri=' + encodeURIComponent('https://redgnad.github.io/CHOGTANKS/privy-crossapp.html') +
+                '&response_type=code' +
+                '&scope=openid';
+            
+            console.log('[CHOGTANKS] 🌐 Cross App URL:', crossAppUrl);
+            console.log('[CHOGTANKS] 🎯 Redirect URI: https://redgnad.github.io/CHOGTANKS/privy-crossapp.html');
+            window.location.href = crossAppUrl;
         }
         
         function handleCallback() {
@@ -182,6 +182,10 @@
                 code: code,
                 allParams: Object.fromEntries(urlParams)
             });
+            
+            // DIAGNOSTIC CRITIQUE: Vérifier si on arrive jamais ici
+            console.log('[DIAGNOSTIC] 🚨 CALLBACK FUNCTION CALLED - This proves we reached privy-crossapp.html');
+            updateStatus('🔍 Callback function called - analyzing...', 'loading');
             
             // Vérifier si on revient de Monad Games ID (même sans paramètres)
             const referrer = document.referrer;
@@ -212,19 +216,10 @@
                 });
             } else if (code) {
                 console.log('[CALLBACK] ✅ Auth code found in URL!');
-                updateStatus('✅ Authentication code received!', 'success');
+                updateStatus('Échange du code d\'autorisation...', 'loading');
                 
-                walletInfoEl.innerHTML = `
-                    <strong>Auth Code:</strong><br/>
-                    ${code.slice(0, 12)}...
-                `;
-                walletInfoEl.style.display = 'block';
-                
-                sendToUnity({
-                    success: true,
-                    provider: 'monad_games_id',
-                    code: code
-                });
+                // Échanger le code contre un access token
+                exchangeCodeForToken(code);
             } else if (isFromMonad) {
                 console.log('[CALLBACK] ⚠️ Returned from Monad Games ID but no callback parameters found');
                 updateStatus('⚠️ No callback data received from Monad Games ID', 'error');
@@ -251,14 +246,151 @@
                 console.log('[CALLBACK] ℹ️ No callback parameters found, normal page load');
             }
         }
+    });
+    
+    // Fonction pour échanger le code d'autorisation via notre serveur proxy
+    async function exchangeCodeForToken(authCode) {
+        try {
+            console.log('[TOKEN-EXCHANGE]  Exchanging authorization code via proxy server...');
+            console.log('[POSTMESSAGE] 📦 Data:', event.data);
+            
+            // Vérifier que le message vient de Monad Games ID
+            if (event.origin.includes('monad-games-id-site.vercel.app')) {
+                if (event.data && event.data.type === 'MONAD_AUTH_SUCCESS') {
+                    console.log('[POSTMESSAGE] ✅ Monad Games ID authentication success!');
+                    
+                    const { user, wallet, username } = event.data;
+                    
+                    updateStatus('✅ Connected to Monad Games ID!', 'success');
+                    
+                    walletInfoEl.innerHTML = `
+                        <strong>Monad Games ID:</strong><br/>
+                        Username: ${username || 'Unknown'}<br/>
+                        Wallet: ${wallet ? wallet.slice(0, 6) + '...' + wallet.slice(-4) : 'Unknown'}
+                    `;
+                    walletInfoEl.style.display = 'block';
+                    
+                    sendToUnity({
+                        success: true,
+                        provider: 'monad_games_id',
+                        wallet: wallet,
+                        username: username,
+                        user: user
+                    });
+                }
+            }
+        });
         
-        // Event listeners
-        monadBtn.addEventListener('click', loginWithMonadGamesID);
+        // Fonction pour échanger le code d'autorisation via notre serveur proxy
+        async function exchangeCodeForToken(authCode) {
+            try {
+                console.log('[TOKEN-EXCHANGE] 🔄 Exchanging authorization code via proxy server...');
+                
+                // Appel à notre serveur proxy au lieu de l'API Privy directement
+                const response = await fetch('https://chogtanks-servers-clean.onrender.com/oauth/exchange', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: authCode,
+                        redirect_uri: 'https://redgnad.github.io/CHOGTANKS/privy-crossapp.html'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Proxy exchange failed: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                console.log('[TOKEN-EXCHANGE] ✅ Data received from proxy:', result);
+                
+                if (result.success && result.wallet) {
+                    updateStatus('✅ Connected to Monad Games ID!', 'success');
+                    
+                    walletInfoEl.innerHTML = `
+                        <strong>Monad Games ID:</strong><br/>
+                        Username: ${result.username || 'Unknown'}<br/>
+                        Wallet: ${result.wallet.slice(0, 6)}...${result.wallet.slice(-4)}
+                    `;
+                    walletInfoEl.style.display = 'block';
+                    
+                    sendToUnity({
+                        success: true,
+                        provider: 'monad_games_id',
+                        wallet: result.wallet,
+                        username: result.username,
+                        user_id: result.user_id
+                    });
+                } else {
+                    throw new Error('No wallet address found in response');
+                }
+                
+            } catch (error) {
+                console.error('[TOKEN-EXCHANGE] ❌ Error:', error);
+                updateStatus(`Erreur d'échange de token: ${error.message}`, 'error');
+            }
+        }
         
-        // Check for callback on load
-        window.addEventListener('load', function() {
-            console.log('[CHOGTANKS] Page loaded, checking for callback...');
-            handleCallback();
+        // Fonction pour récupérer les infos utilisateur avec l'access token
+        async function getUserInfo(accessToken) {
+            try {
+                console.log('[USER-INFO] 🔄 Fetching user info with access token...');
+                
+                const response = await fetch('https://auth.privy.io/api/v1/users/me', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`User info fetch failed: ${response.status}`);
+                }
+                
+                const userData = await response.json();
+                console.log('[USER-INFO] ✅ User data received:', userData);
+                
+                // Extraire wallet address et username
+                const walletAddress = userData.linked_accounts?.find(acc => acc.type === 'wallet')?.address;
+                const crossAppAccount = userData.linked_accounts?.find(acc => acc.type === 'cross_app' && acc.provider_app_id === 'cmd8euall0037le0my79qpz42');
+                const username = crossAppAccount?.username;
+                
+                if (walletAddress) {
+                    updateStatus('✅ Connected to Monad Games ID!', 'success');
+                    
+                    walletInfoEl.innerHTML = `
+                        <strong>Monad Games ID:</strong><br/>
+                        Username: ${username || 'Unknown'}<br/>
+                        Wallet: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}
+                    `;
+                    walletInfoEl.style.display = 'block';
+                    
+                    sendToUnity({
+                        success: true,
+                        provider: 'monad_games_id',
+                        wallet: walletAddress,
+                        username: username,
+                        accessToken: accessToken
+                    });
+                } else {
+                    throw new Error('No wallet address found in user data');
+                }
+                
+            } catch (error) {
+                console.error('[USER-INFO] ❌ Error:', error);
+                updateStatus(`Erreur récupération utilisateur: ${error.message}`, 'error');
+            }
+        }
+        
+        // DIAGNOSTIC CRITIQUE: Vérifier si cette page se charge JAMAIS
+        console.log('[DIAGNOSTIC] 🚨 PRIVY-CROSSAPP.HTML LOADED - If you see this, the page loads');
+        console.log('[DIAGNOSTIC] 🚨 Current URL:', window.location.href);
+        console.log('[DIAGNOSTIC] 🚨 Referrer:', document.referrer);
+        
+        // Afficher immédiatement dans l'UI
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('🚨 DIAGNOSTIC: Page loaded successfully', 'success');
         });
         
         console.log('[CHOGTANKS] ✅ Simple Monad Games ID auth ready');
