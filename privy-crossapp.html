@@ -101,10 +101,6 @@
         </div>
     </div>
 
-    <!-- Privy React Auth SDK -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@privy-io/react-auth@latest/dist/index.umd.js"></script>
 
     <script>
         console.log('[CHOGTANKS] 🚀 Starting API-based authentication...');
@@ -168,43 +164,20 @@
             window.location.href = discordAuthUrl;
         }
         
-        // Cross App avec Monad Games ID - utiliser SDK React officiel
+        // Cross App avec Monad Games ID - endpoint direct uniquement
         async function loginWithMonadGamesID() {
             updateStatus('Connecting to Monad Games ID...', 'loading');
             
             try {
-                // Initialiser Privy avec configuration Cross App
-                const {PrivyProvider, usePrivy, useCrossAppAccounts} = window.PrivyReactAuth;
+                // Utiliser endpoint direct Cross App Privy
+                const crossAppUrl = `https://auth.privy.io/cross-app/authorize?` +
+                    `client_id=${PRIVY_APP_ID}&` +
+                    `provider_app_id=${MONAD_GAMES_ID}&` +
+                    `redirect_uri=${encodeURIComponent(window.location.href)}&` +
+                    `response_type=code`;
                 
-                // Configuration Privy pour Cross App
-                const privyConfig = {
-                    appId: PRIVY_APP_ID,
-                    clientId: PRIVY_APP_ID,
-                    config: {
-                        embeddedWallets: {
-                            ethereum: { createOnLogin: 'users-without-wallets' }
-                        }
-                    }
-                };
-                
-                console.log('[MONAD] Initializing Privy Cross App with config:', privyConfig);
-                
-                // Utiliser loginWithCrossAppAccount selon documentation officielle
-                if (window.privyInstance && window.privyInstance.loginWithCrossAppAccount) {
-                    await window.privyInstance.loginWithCrossAppAccount({
-                        appId: MONAD_GAMES_ID
-                    });
-                } else {
-                    // Fallback vers endpoint direct si SDK pas disponible
-                    const crossAppUrl = `https://auth.privy.io/cross-app/authorize?` +
-                        `client_id=${PRIVY_APP_ID}&` +
-                        `provider_app_id=${MONAD_GAMES_ID}&` +
-                        `redirect_uri=${encodeURIComponent(window.location.href)}&` +
-                        `response_type=code`;
-                    
-                    console.log('[MONAD] Fallback to direct URL:', crossAppUrl);
-                    window.location.href = crossAppUrl;
-                }
+                console.log('[MONAD] Redirecting to Cross App:', crossAppUrl);
+                window.location.href = crossAppUrl;
                 
             } catch (error) {
                 console.error('[MONAD] Error:', error);
@@ -272,38 +245,9 @@
         monadBtn.addEventListener('click', loginWithMonadGamesID);
         discordBtn.addEventListener('click', loginWithDiscord);
         
-        // Initialiser Privy au chargement
-        window.addEventListener('load', async function() {
-            console.log('[CHOGTANKS] Page loaded, initializing Privy...');
-            
-            try {
-                // Initialiser Privy avec configuration Cross App
-                if (window.PrivyReactAuth) {
-                    console.log('[PRIVY] SDK loaded, initializing...');
-                    
-                    // Configuration selon documentation officielle
-                    window.privyConfig = {
-                        appId: PRIVY_APP_ID,
-                        clientId: PRIVY_APP_ID,
-                        config: {
-                            embeddedWallets: {
-                                ethereum: { createOnLogin: 'users-without-wallets' }
-                            }
-                        }
-                    };
-                    
-                    console.log('[PRIVY] Configuration:', window.privyConfig);
-                    updateStatus('Privy SDK initialized', 'success');
-                } else {
-                    console.warn('[PRIVY] SDK not loaded, using fallback method');
-                    updateStatus('Using fallback authentication method', 'warning');
-                }
-            } catch (error) {
-                console.error('[PRIVY] Initialization error:', error);
-                updateStatus('SDK initialization failed, using fallback', 'warning');
-            }
-            
-            // Vérifier callback OAuth
+        // Initialiser au chargement
+        window.addEventListener('load', function() {
+            console.log('[CHOGTANKS] Page loaded, checking for auth callback...');
             handleAuthCallback();
         });
         
