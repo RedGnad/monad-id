@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CHOGTANKS - Monad Games ID Login</title>
+    
+    
+    
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -83,39 +86,24 @@
     </style>
 </head>
 <body>
-    <div id="root">
-        <div class="container">
-            <div class="logo">🎮 CHOGTANKS</div>
-            <div class="subtitle">Connect with Monad Games ID</div>
-            
-            <button id="monad-login-btn" class="monad-button">
-                🎯 Sign in with Monad Games ID
-            </button>
-            
-            <button id="discord-login-btn" class="monad-button" style="background: #5865F2;">
-                🎮 Discord Login
-            </button>
-            
-            <div id="status" class="status loading">Ready to connect...</div>
-            <div id="wallet-info" class="wallet-info" style="display: none;"></div>
-        </div>
+    <div class="container">
+        <div class="logo">🎮 CHOGTANKS</div>
+        <div class="subtitle">Connect with Monad Games ID</div>
+        
+        <button id="monad-login-btn" class="monad-button">
+            🎯 Sign in with Monad Games ID
+        </button>
+        
+        <div id="status" class="status loading">Ready to connect...</div>
+        <div id="wallet-info" class="wallet-info" style="display: none;"></div>
     </div>
 
     <script>
-        console.log('[CHOGTANKS] 🚀 Starting API-based authentication...');
+        console.log('[CHOGTANKS] 🚀 Starting simple Monad Games ID auth...');
         
-        const PRIVY_APP_ID = 'cmek64iqd02lql70b9fl64lm9';
-        const MONAD_GAMES_ID = 'cmd8euall0037le0my79qpz42';
-        const PRIVY_API_BASE = 'https://auth.privy.io';
-        
-        let currentUser = null;
-        let authToken = null;
-        
-        // Elements
-        const monadBtn = document.getElementById('monad-login-btn');
-        const discordBtn = document.getElementById('discord-login-btn');
         const statusEl = document.getElementById('status');
         const walletInfoEl = document.getElementById('wallet-info');
+        const monadBtn = document.getElementById('monad-login-btn');
         
         function updateStatus(message, type = 'loading') {
             statusEl.textContent = message;
@@ -125,9 +113,7 @@
         
         function sendToUnity(data) {
             console.log('[UNITY] Sending data:', data);
-            
             try {
-                // PostMessage to parent
                 if (window.parent !== window) {
                     window.parent.postMessage({
                         type: 'CHOGTANKS_MONAD_RESULT',
@@ -135,45 +121,24 @@
                     }, '*');
                 }
                 
-                // Unity WebGL
                 if (window.unityInstance) {
-                    window.unityInstance.SendMessage('MonadGamesIDWebView', 'OnMonadGamesIDResult', JSON.stringify(data));
+                    window.unityInstance.SendMessage('PrivyManager', 'OnMonadGamesIDResult', JSON.stringify(data));
                 }
-                
-                // URL callback
-                const callbackUrl = `chogtanks://monad-result?${new URLSearchParams(data).toString()}`;
-                setTimeout(() => window.location.href = callbackUrl, 1000);
-                
             } catch (error) {
-                console.error('[UNITY] Error:', error);
+                console.error('[UNITY] Error sending to Unity:', error);
             }
         }
         
-        // Discord OAuth Login
-        async function loginWithDiscord() {
-            updateStatus('Redirecting to Discord...', 'loading');
-            
-            const discordAuthUrl = `https://discord.com/api/oauth2/authorize?` +
-                `client_id=1234567890&` + // Remplace par ton Discord Client ID
-                `redirect_uri=${encodeURIComponent(window.location.href)}&` +
-                `response_type=code&` +
-                `scope=identify%20email`;
-            
-            window.location.href = discordAuthUrl;
-        }
-        
-        // Cross App avec Monad Games ID
         async function loginWithMonadGamesID() {
-            updateStatus('Connecting to Monad Games ID...', 'loading');
+            updateStatus('Redirecting to Monad Games ID...', 'loading');
             
             try {
-                // Étape 1: Redirection vers Monad Games ID
-                const monadAuthUrl = `https://monad-games-id-site.vercel.app/auth/privy?` +
-                    `app_id=${PRIVY_APP_ID}&` +
+                // Rediriger directement vers le site Monad Games ID
+                const monadUrl = `https://monad-games-id-site.vercel.app/?` +
                     `redirect_uri=${encodeURIComponent(window.location.href)}`;
                 
-                console.log('[MONAD] Redirecting to:', monadAuthUrl);
-                window.location.href = monadAuthUrl;
+                console.log('[MONAD] Redirecting to:', monadUrl);
+                window.location.href = monadUrl;
                 
             } catch (error) {
                 console.error('[MONAD] Error:', error);
@@ -181,58 +146,16 @@
             }
         }
         
-        // Traiter retour d'authentification
-        function handleAuthCallback() {
+        function handleCallback() {
             const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
             const token = urlParams.get('token');
             const wallet = urlParams.get('wallet');
             const username = urlParams.get('username');
+            const code = urlParams.get('code');
             
-            if (code) {
-                updateStatus('Processing Discord authentication...', 'loading');
-                // Traiter code Discord
-                processDiscordAuth(code);
-            } else if (token && wallet) {
-                updateStatus('Processing Monad Games ID authentication...', 'loading');
-                // Traiter retour Monad Games ID
-                processMonadAuth(token, wallet, username);
-            }
-        }
-        
-        async function processDiscordAuth(code) {
-            try {
-                // Échanger code contre token Discord
-                const response = await fetch('/api/discord-auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code })
-                });
+            if (token && wallet) {
+                updateStatus('✅ Connected to Monad Games ID!', 'success');
                 
-                const data = await response.json();
-                
-                if (data.success) {
-                    updateStatus('✅ Discord authentication successful!', 'success');
-                    sendToUnity({
-                        success: true,
-                        provider: 'discord',
-                        username: data.username,
-                        email: data.email
-                    });
-                } else {
-                    throw new Error(data.error);
-                }
-                
-            } catch (error) {
-                updateStatus(`Discord auth error: ${error.message}`, 'error');
-            }
-        }
-        
-        async function processMonadAuth(token, wallet, username) {
-            try {
-                updateStatus('✅ Monad Games ID connected!', 'success');
-                
-                // Afficher infos wallet
                 walletInfoEl.innerHTML = `
                     <strong>Monad Games ID:</strong><br/>
                     Username: ${username || 'Unknown'}<br/>
@@ -240,29 +163,40 @@
                 `;
                 walletInfoEl.style.display = 'block';
                 
-                // Envoyer à Unity
                 sendToUnity({
                     success: true,
                     provider: 'monad_games_id',
-                    walletAddress: wallet,
-                    username: username,
-                    token: token
+                    token: token,
+                    wallet: wallet,
+                    username: username
                 });
+            } else if (code) {
+                updateStatus('✅ Authentication code received!', 'success');
                 
-            } catch (error) {
-                updateStatus(`Monad auth error: ${error.message}`, 'error');
+                walletInfoEl.innerHTML = `
+                    <strong>Auth Code:</strong><br/>
+                    ${code.slice(0, 12)}...
+                `;
+                walletInfoEl.style.display = 'block';
+                
+                sendToUnity({
+                    success: true,
+                    provider: 'monad_games_id',
+                    code: code
+                });
             }
         }
         
         // Event listeners
         monadBtn.addEventListener('click', loginWithMonadGamesID);
-        discordBtn.addEventListener('click', loginWithDiscord);
         
-        // Check for auth callback on load
-        window.addEventListener('load', handleAuthCallback);
+        // Check for callback on load
+        window.addEventListener('load', function() {
+            console.log('[CHOGTANKS] Page loaded, checking for callback...');
+            handleCallback();
+        });
         
-        updateStatus('Ready to connect...', 'loading');
-        console.log('[CHOGTANKS] ✅ API-based auth ready');
+        console.log('[CHOGTANKS] ✅ Simple Monad Games ID auth ready');
     </script>
 </body>
 </html>
