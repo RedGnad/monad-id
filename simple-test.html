@@ -104,7 +104,7 @@
     </div>
 
     <!-- Privy SDK -->
-    <script src="https://unpkg.com/@privy-io/js-sdk@1.0.0/dist/index.js"></script>
+    <script src="https://unpkg.com/@privy-io/js-sdk@1.75.1/dist/index.umd.js"></script>
     
     <script>
         let privyClient = null;
@@ -113,12 +113,14 @@
         // Configuration Privy
         const PRIVY_CONFIG = {
             appId: 'cmek64iqd02lql70b9fl64lm9',
-            clientId: 'client-WY6Ppw4LLAHEMShmi9brMwkW43C9mQfy9r7Z2RyJJojW8',
             config: {
-                loginMethods: ['discord'],
+                loginMethods: ['discord', 'email', 'wallet'],
                 appearance: {
                     theme: 'light',
                     accentColor: '#5865F2'
+                },
+                embeddedWallets: {
+                    createOnLogin: 'users-without-wallets'
                 }
             }
         };
@@ -128,28 +130,40 @@
             try {
                 updateStatus('info', '🔄 Initialisation de Privy...');
                 
-                // Créer le client Privy
-                privyClient = new Privy.PrivyClient(PRIVY_CONFIG.appId, {
-                    clientId: PRIVY_CONFIG.clientId,
-                    ...PRIVY_CONFIG.config
+                // Créer le client Privy avec la bonne API
+                privyClient = window.Privy.createPrivyClient(PRIVY_CONFIG.appId, PRIVY_CONFIG.config);
+                
+                // Écouter les changements d'état
+                privyClient.onAuthStateChange((user) => {
+                    console.log('Auth state changed:', user);
+                    currentUser = user;
+                    
+                    if (user) {
+                        updateStatus('success', '✅ Utilisateur connecté');
+                        showUserInfo(user);
+                        
+                        // Notifier Unity immédiatement
+                        notifyUnity({
+                            success: true,
+                            action: 'login',
+                            walletAddress: user.wallet?.address || '',
+                            username: user.discord?.username || user.email?.address || '',
+                            userId: user.id,
+                            email: user.email?.address || '',
+                            discordUsername: user.discord?.username || ''
+                        });
+                    } else {
+                        updateStatus('info', '👋 Prêt à se connecter');
+                        showAuthSection();
+                    }
                 });
                 
-                // Vérifier si l'utilisateur est déjà connecté
-                currentUser = await privyClient.getUser();
-                
-                if (currentUser) {
-                    updateStatus('success', '✅ Utilisateur déjà connecté');
-                    showUserInfo(currentUser);
-                } else {
-                    updateStatus('info', '👋 Prêt à se connecter');
-                    showAuthSection();
-                }
+                updateStatus('success', '✅ Privy initialisé');
+                showAuthSection();
                 
             } catch (error) {
                 console.error('Erreur initialisation Privy:', error);
                 updateStatus('error', `❌ Erreur: ${error.message}`);
-                
-                // Fallback: montrer quand même les boutons pour tester
                 showAuthSection();
             }
         }
@@ -164,25 +178,8 @@
                     throw new Error('Privy non initialisé');
                 }
                 
-                // Lancer l'authentification Discord
-                const user = await privyClient.login({
-                    loginMethod: 'discord'
-                });
-                
-                currentUser = user;
-                updateStatus('success', '✅ Connexion réussie !');
-                showUserInfo(user);
-                
-                // Notifier Unity
-                notifyUnity({
-                    success: true,
-                    action: 'login',
-                    user: {
-                        id: user.id,
-                        discord: user.discord,
-                        wallet: user.wallet
-                    }
-                });
+                // Lancer l'authentification avec la bonne API
+                await privyClient.login();
                 
             } catch (error) {
                 console.error('Erreur connexion:', error);
@@ -233,8 +230,11 @@
                     <h3>👤 Utilisateur connecté</h3>
                     <p><strong>ID:</strong> ${user.id}</p>
                     ${user.discord ? `
-                        <p><strong>Discord:</strong> ${user.discord.username}#${user.discord.discriminator}</p>
+                        <p><strong>Discord:</strong> ${user.discord.username}</p>
                         <p><strong>Email:</strong> ${user.discord.email || 'Non disponible'}</p>
+                    ` : ''}
+                    ${user.email ? `
+                        <p><strong>Email:</strong> ${user.email.address}</p>
                     ` : ''}
                     ${user.wallet ? `
                         <p><strong>Wallet:</strong> ${user.wallet.address}</p>
@@ -286,6 +286,8 @@
                     console.log('Message envoyé à Unity:', message);
                 } else {
                     console.log('Unity non disponible, données:', data);
+                    // Stocker dans localStorage comme fallback
+                    localStorage.setItem('monadAuthResult', JSON.stringify(data));
                 }
             } catch (error) {
                 console.error('Erreur communication Unity:', error);
