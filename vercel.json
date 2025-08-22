@@ -1,8 +1,0 @@
-{
-  "routes": [
-    {
-      "src": "/monad-react-webview/(.*)",
-      "dest": "/monad-react-webview/$1"
-    }
-  ]
-}
