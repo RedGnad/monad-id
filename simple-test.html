@@ -103,16 +103,16 @@
         <div id="user-info" style="display: none;"></div>
     </div>
 
-    <!-- Privy SDK -->
-    <script src="https://unpkg.com/@privy-io/js-sdk-core@0.53.4/dist/index.js"></script>
-    
-    <script>
+    <script type="module">
+        import Privy, { LocalStorage } from 'https://unpkg.com/@privy-io/js-sdk-core@0.53.4/dist/esm/index.js';
+        
         let privyClient = null;
         let currentUser = null;
         
         // Configuration Privy
         const PRIVY_CONFIG = {
-            appId: 'cmek64iqd02lql70b9fl64lm9'
+            appId: 'cmek64iqd02lql70b9fl64lm9',
+            clientId: 'client-WY6Ppw4LLAHEMShmi9brMwkW43C9mQfy9r7Z2RyJJojW8'
         };
         
         // Initialiser Privy
@@ -120,14 +120,11 @@
             try {
                 updateStatus('info', '🔄 Initialisation de Privy...');
                 
-                // Vérifier si Privy est disponible
-                if (typeof window.Privy === 'undefined') {
-                    throw new Error('Privy SDK non chargé');
-                }
-                
-                // Créer le client Privy avec la vraie API
-                privyClient = new window.Privy.Privy({
-                    appId: PRIVY_CONFIG.appId
+                // Créer le client Privy avec la vraie API selon la doc
+                privyClient = new Privy({
+                    appId: PRIVY_CONFIG.appId,
+                    clientId: PRIVY_CONFIG.clientId,
+                    storage: new LocalStorage()
                 });
                 
                 updateStatus('success', '✅ Privy initialisé');
@@ -293,6 +290,11 @@
             }
         }
         
+        // Exposer les fonctions globalement pour les boutons onclick
+        window.loginWithDiscord = loginWithDiscord;
+        window.logout = logout;
+        window.initPrivy = initPrivy;
+        
         // Initialiser au chargement
         window.onload = function() {
             setTimeout(initPrivy, 1000);
@@ -304,6 +306,9 @@
             updateStatus('error', `❌ Erreur: ${msg}`);
             return false;
         };
+    </script>
+    
+    <script>
     </script>
 </body>
 </html>
