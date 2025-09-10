@@ -137,3 +137,7 @@
       var mo = new MutationObserver(fixAll);
       mo.observe(document.documentElement, {childList:true, subtree:true, characterData:true});
       document.addEventListener('DOMContentLoaded', function(){ fixAll(); setTimeout(fixAll, 300); });
+    })();
+  </script>
+</body>
+</html>
